@@ -1,0 +1,14 @@
+agent_kg is a knowledge graph mcp server to provide a "memento" class of AI agents with
+ - episodic memory
+ - factual memory
+ - task planning and result history
+
+It is implemented as a postgresql database application.
+
+While the primary tables implement an ERP / knowledge graph, 
+it contains specialized tables for "system" information, such as
+initialization instructions.
+
+The schema is described in schema.sq
+
+Other design information is in .design

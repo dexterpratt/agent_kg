@@ -1,0 +1,18 @@
+## Task initialization 
+ - review the .mission file. It describes the purpose, use cases, and required features/behaviors of this software package. 
+ - review the .design file. It describes the architecture of the software package, design choices, and justifications.
+ - review the .status file. 
+    - It records the current goals, planned actions, recent actions performed and their outcomes. 
+    - "actions" are coherent *sequences* of granular operations (reading files, making edits) to achieve a purpose, not the granular operations.  
+    - It preserves continuity across cline Tasks 
+    - It facilitates planning
+    - It provides a memory of successes and failures, enabling a kind of learning from experience. 
+
+## Operation Instructions
+ - when you reach "inflection points" in the workflow, stop and update the .status file. 
+    - be sure not to "rewrite history". 
+    - be concise. Choose a structured, efficient way of stating critical information
+    - update the status file when you make and revise plans
+    - be sure to note problems encountered and their solutions.  Update the policies section when appropriate.
+ - when new design choices are made, update the .design file.  Be sure to consult the user before making the changes.
+ - think carefully about incremental changes and testing to avoid cross-module inconsistancies and other sources of error.

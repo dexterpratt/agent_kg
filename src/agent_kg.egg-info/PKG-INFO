@@ -1,0 +1,14 @@
+Metadata-Version: 2.1
+Name: agent_kg
+Version: 0.0.1
+Summary: A simple MCP server for a knowledge graph
+Author: Agent KG Team
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+Requires-Dist: mcp>=1.0.0
+Requires-Dist: psycopg2
+Requires-Dist: pandas
+Requires-Dist: python-dotenv
+
+# agent_kg
+ knowledge graph database for agents 

@@ -1,0 +1,87 @@
+## Software Architecture
+
+The agent_kg system is structured as an MCP server that provides knowledge graph capabilities through a PostgreSQL database. The architecture consists of several key components:
+
+1. Core Knowledge Graph Layer
+   - Entities table as primary nodes
+   - Relationships table for edges between entities
+   - Properties system with both flexible and validated property storage
+   - Property definitions for validation rules
+
+2. Agent Operations Layer
+   - Procedures, steps, and components for defining agent operations
+   - Operation logging and state tracking
+   - Query templates and result formats for standardized data access
+
+3. System Management Layer
+   - Schema version control
+   - System purpose documentation
+   - Vocabulary management
+   - Task tracking
+
+## Schema Overview
+
+Core Knowledge Graph Tables:
+- entities: Stores nodes with type and name
+- relationships: Stores edges between entities with type
+- properties: Flexible property storage for both entities and relationships
+- property_definitions: Defines valid property keys and validation rules
+- validated_properties: Properties that conform to defined rules
+
+Agent Procedures:
+- agent_procedures: Defines procedures/operations
+- procedure_steps: Steps within procedures
+- procedure_components: Technical implementation details for steps
+
+Operation Tracking:
+- operation_log: Logs operations and their status
+- operation_states: Tracks state changes during operations
+
+Query Management:
+- query_templates: Reusable query patterns
+- result_formats: Standardized output formats
+
+System Tables:
+- system_purpose: Documents system architecture and conventions
+- schema_versions: Tracks database schema evolution
+- schema_vocabulary: Maintains consistent terminology
+- tasks: Tracks development and operational tasks
+
+## Implementation Notes
+
+1. Error Handling
+   - Use standard error types with descriptive messages
+   - MCP package does not provide specific error types
+   - Operation logging captures errors and resolution steps
+
+2. Data Validation
+   - Two-tier property system: flexible and validated
+   - Property definitions enforce data consistency
+   - Schema vocabulary ensures terminology consistency
+
+3. Performance Considerations
+   - Indexed key fields for efficient querying
+   - Unique constraints on critical combinations
+   - Timestamp tracking for all major entities
+
+4. Security
+   - Row-level security disabled
+   - All operations logged for audit purposes
+   - State tracking for operation verification
+
+## Future Considerations
+
+1. Scalability
+   - Monitor performance with growing data volume
+   - Consider partitioning for large tables
+   - Evaluate caching strategies
+
+2. Integration
+   - Standardize API patterns for agent interaction
+   - Define clear boundaries for system expansion
+   - Maintain backward compatibility
+
+3. Maintenance
+   - Regular schema version updates
+   - Monitoring of operation logs
+   - Performance optimization based on usage patterns

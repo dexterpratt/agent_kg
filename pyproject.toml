@@ -1,0 +1,20 @@
+[project]
+name = "agent_kg"
+version = "0.0.1"
+description = "A simple MCP server for a knowledge graph"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "mcp>=1.0.0",
+    "psycopg2",
+    "pandas",
+    "python-dotenv"
+]
+
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project.scripts]
+agent_kg = "agent_kg:main"
+
