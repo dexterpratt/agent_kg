@@ -14,6 +14,9 @@ from .postgres import PostgresDB
 from .tool_definitions import TOOL_DEFINITIONS
 from .handlers import ToolHandlers
 import dotenv
+import json
+from datetime import datetime
+
 
 # Configure logging
 logging.basicConfig(
@@ -30,6 +33,12 @@ logger.info("Initializing Knowledge Graph MCP Server")
 # Load environment variables
 dotenv.load_dotenv()
 
+class CustomJSONEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, datetime):
+            return obj.isoformat()
+        return json.JSONEncoder.default(self, obj)
+        
 class KnowledgeGraphServer:
     def __init__(self):
         # Initialize MCP server
@@ -57,57 +66,31 @@ class KnowledgeGraphServer:
     def setup_tool_handlers(self) -> None:
         """Configure the available tools"""
         
-        @self.server.list_tools
         async def handle_list_tools() -> list[types.Tool]:
-            """Return list of available tools"""
             return [
                 types.Tool(
-                    name="add_entity",
-                    description="Add a new entity to the graph",
-                    inputSchema={
-                        "type": "object",
-                        "properties": {
-                            "type": {"type": "string"},
-                            "name": {"type": "string"},
-                            "properties": {
-                                "type": "object",
-                                "additionalProperties": True
-                            }
-                        },
-                        "required": ["type", "name"]
-                    }
-                ),
-                # Add other tools with their schemas
-                types.Tool(
-                    name="get_entity",
-                    description="Get an entity by ID or name",
-                    inputSchema={
-                        "type": "object",
-                        "properties": {
-                            "id": {"type": "integer"},
-                            "name": {"type": "string"}
-                        },
-                        "oneOf": [
-                            {"required": ["id"]},
-                            {"required": ["name"]}
-                        ]
-                    }
-                ),
-                # ... Add the rest of the tools
+                    name=name,
+                    description=desc,
+                    inputSchema=schema
+                ) for name, desc, schema in TOOL_DEFINITIONS
             ]
 
-    @self.server.call_tool
-    async def handle_call_tool(name: str, arguments: dict[str, Any] | None) -> list[types.TextContent]:
-        """Handle tool calls by dispatching to appropriate handler"""
-        handler = getattr(self.handlers, name, None)
-        if not handler:
-            raise ValueError(f"Unknown tool: {name}")
-        
-        try:
-            result = await handler(arguments or {})
-            return [types.TextContent(type="text", text=str(result))]
-        except Exception as e:
-            raise ValueError(f"Tool execution failed: {str(e)}")
+        async def handle_call_tool(name: str, arguments: dict[str, Any] | None) -> list[types.TextContent]:
+            handler = getattr(self.handlers, name, None)
+            if not handler:
+                raise ValueError(f"Unknown tool: {name}")
+            
+            try:
+                result = await handler(arguments or {})
+                # Convert the result to proper JSON format with custom encoder
+                result_json = json.dumps(result, cls=CustomJSONEncoder)
+                return [types.TextContent(type="text", text=result_json)]
+            except Exception as e:
+                raise ValueError(f"Tool execution failed: {str(e)}")
+
+        # Set the handlers directly
+        self.server.handle_list_tools = handle_list_tools
+        self.server.handle_call_tool = handle_call_tool
 
     async def run(self) -> None:
         """Run the MCP server"""

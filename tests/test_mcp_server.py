@@ -8,7 +8,7 @@ from mcp.types import Tool, TextContent
 @pytest.mark.asyncio
 async def test_list_tools(server):
     """Test that the server correctly lists available tools."""
-    tools = await server.server.list_tools()
+    tools = await server.server.handle_list_tools()
     
     # Verify all required tools are present
     required_tools = {
@@ -49,7 +49,7 @@ async def test_tool_execution(server, clean_db):
         }
     }
     
-    result = await server.server.call_tool("add_entity", entity_args)
+    result = await server.server.handle_call_tool("add_entity", entity_args)
     assert isinstance(result, list)
     assert len(result) == 1
     assert isinstance(result[0], TextContent)
@@ -60,7 +60,7 @@ async def test_tool_execution(server, clean_db):
     entity_id = response_data["id"]
     
     # Test entity retrieval through MCP
-    result = await server.server.call_tool("get_entity", {"id": entity_id})
+    result = await server.server.handle_call_tool("get_entity", {"id": entity_id})
     assert len(result) == 1
     entity_data = json.loads(result[0].text)
     assert entity_data["name"] == "Test Person"
@@ -72,29 +72,29 @@ async def test_tool_error_handling(server, clean_db):
     
     # Test non-existent tool
     with pytest.raises(ValueError):
-        await server.server.call_tool("non_existent_tool", {})
+        await server.server.handle_call_tool("non_existent_tool", {})
     
     # Test invalid arguments
     with pytest.raises(ValueError):
-        await server.server.call_tool("add_entity", {})  # Missing required fields
+        await server.server.handle_call_tool("add_entity", {})  # Missing required fields
     
     # Test invalid entity ID
     with pytest.raises(ValueError):
-        await server.server.call_tool("get_entity", {"id": 999999})
+        await server.server.handle_call_tool("get_entity", {"id": 999999})
 
 @pytest.mark.asyncio
 async def test_complex_workflow(server, clean_db):
     """Test a complex workflow involving multiple tool calls."""
     
     # 1. Create two entities
-    person1_result = await server.server.call_tool("add_entity", {
+    person1_result = await server.server.handle_call_tool("add_entity", {
         "type": "person",
         "name": "Manager",
         "properties": {"department": "Engineering"}
     })
     person1_id = json.loads(person1_result[0].text)["id"]
     
-    person2_result = await server.server.call_tool("add_entity", {
+    person2_result = await server.server.handle_call_tool("add_entity", {
         "type": "person",
         "name": "Employee",
         "properties": {"skill": "Python"}
@@ -102,7 +102,7 @@ async def test_complex_workflow(server, clean_db):
     person2_id = json.loads(person2_result[0].text)["id"]
     
     # 2. Create relationship
-    rel_result = await server.server.call_tool("add_relationship", {
+    rel_result = await server.server.handle_call_tool("add_relationship", {
         "source_id": person1_id,
         "target_id": person2_id,
         "type": "manages",
@@ -111,7 +111,7 @@ async def test_complex_workflow(server, clean_db):
     assert "id" in json.loads(rel_result[0].text)
     
     # 3. Search for entities
-    search_result = await server.server.call_tool("search_entities", {
+    search_result = await server.server.handle_call_tool("search_entities", {
         "type": "person",
         "properties": {"department": "Engineering"}
     })
@@ -120,7 +120,7 @@ async def test_complex_workflow(server, clean_db):
     assert search_data[0]["name"] == "Manager"
     
     # 4. Get connected entities
-    connected_result = await server.server.call_tool("get_connected_entities", {
+    connected_result = await server.server.handle_call_tool("get_connected_entities", {
         "entity_id": person1_id,
         "relationship_type": "manages"
     })
@@ -135,7 +135,7 @@ async def test_concurrent_operations(server, clean_db):
     
     # Create multiple entities concurrently
     async def create_entity(name: str) -> Dict[str, Any]:
-        result = await server.server.call_tool("add_entity", {
+        result = await server.server.handle_call_tool("add_entity", {
             "type": "person",
             "name": name,
             "properties": {"test": "concurrent"}
@@ -151,7 +151,7 @@ async def test_concurrent_operations(server, clean_db):
     assert all("id" in result for result in results)
     
     # Search for all created entities
-    search_result = await server.server.call_tool("search_entities", {
+    search_result = await server.server.handle_call_tool("search_entities", {
         "properties": {"test": "concurrent"}
     })
     search_data = json.loads(search_result[0].text)

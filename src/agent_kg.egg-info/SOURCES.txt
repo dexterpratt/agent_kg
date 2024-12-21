@@ -13,4 +13,7 @@ src/agent_kg.egg-info/dependency_links.txt
 src/agent_kg.egg-info/entry_points.txt
 src/agent_kg.egg-info/requires.txt
 src/agent_kg.egg-info/top_level.txt
+tests/test_integration.py
+tests/test_mcp_server.py
+tests/test_performance.py
 tests/test_postgres_module.py

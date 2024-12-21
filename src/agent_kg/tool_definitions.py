@@ -1,10 +1,13 @@
-"""Module containing tool definitions for the knowledge graph server."""
+"""Definitions for the Knowledge Graph MCP server tools."""
 
-TOOL_DEFINITIONS = [
-    {
-        "name": "add_entity",
-        "description": "Add a new entity to the knowledge graph",
-        "inputSchema": {
+from typing import List, Tuple, Dict, Any
+
+# Each tuple contains (name, description, input_schema)
+TOOL_DEFINITIONS: List[Tuple[str, str, Dict[str, Any]]] = [
+    (
+        "add_entity",
+        "Add a new entity to the graph",
+        {
             "type": "object",
             "properties": {
                 "type": {"type": "string"},
@@ -16,11 +19,11 @@ TOOL_DEFINITIONS = [
             },
             "required": ["type", "name"]
         }
-    },
-    {
-        "name": "get_entity",
-        "description": "Get an entity by ID or name",
-        "inputSchema": {
+    ),
+    (
+        "get_entity",
+        "Get an entity by ID or name",
+        {
             "type": "object",
             "properties": {
                 "id": {"type": "integer"},
@@ -31,11 +34,11 @@ TOOL_DEFINITIONS = [
                 {"required": ["name"]}
             ]
         }
-    },
-    {
-        "name": "update_entity",
-        "description": "Update an entity's properties",
-        "inputSchema": {
+    ),
+    (
+        "update_entity",
+        "Update an entity's properties",
+        {
             "type": "object",
             "properties": {
                 "id": {"type": "integer"},
@@ -46,22 +49,22 @@ TOOL_DEFINITIONS = [
             },
             "required": ["id", "properties"]
         }
-    },
-    {
-        "name": "delete_entity",
-        "description": "Delete an entity",
-        "inputSchema": {
+    ),
+    (
+        "delete_entity",
+        "Delete an entity",
+        {
             "type": "object",
             "properties": {
                 "id": {"type": "integer"}
             },
             "required": ["id"]
         }
-    },
-    {
-        "name": "add_relationship",
-        "description": "Add a relationship between entities",
-        "inputSchema": {
+    ),
+    (
+        "add_relationship",
+        "Add a relationship between entities",
+        {
             "type": "object",
             "properties": {
                 "source_id": {"type": "integer"},
@@ -74,11 +77,11 @@ TOOL_DEFINITIONS = [
             },
             "required": ["source_id", "target_id", "type"]
         }
-    },
-    {
-        "name": "get_relationships",
-        "description": "Get relationships for an entity",
-        "inputSchema": {
+    ),
+    (
+        "get_relationships",
+        "Get relationships for an entity",
+        {
             "type": "object",
             "properties": {
                 "entity_id": {"type": "integer"},
@@ -89,11 +92,11 @@ TOOL_DEFINITIONS = [
             },
             "required": ["entity_id"]
         }
-    },
-    {
-        "name": "update_relationship",
-        "description": "Update a relationship's properties",
-        "inputSchema": {
+    ),
+    (
+        "update_relationship",
+        "Update a relationship's properties",
+        {
             "type": "object",
             "properties": {
                 "id": {"type": "integer"},
@@ -104,37 +107,36 @@ TOOL_DEFINITIONS = [
             },
             "required": ["id", "properties"]
         }
-    },
-    {
-        "name": "delete_relationship",
-        "description": "Delete a relationship",
-        "inputSchema": {
+    ),
+    (
+        "delete_relationship",
+        "Delete a relationship",
+        {
             "type": "object",
             "properties": {
                 "id": {"type": "integer"}
             },
             "required": ["id"]
         }
-    },
-    {
-        "name": "search_entities",
-        "description": "Search entities by properties",
-        "inputSchema": {
+    ),
+    (
+        "search_entities",
+        "Search entities by type and/or properties",
+        {
             "type": "object",
             "properties": {
+                "type": {"type": "string"},
                 "properties": {
                     "type": "object",
                     "additionalProperties": True
-                },
-                "type": {"type": "string"}
-            },
-            "required": ["properties"]
+                }
+            }
         }
-    },
-    {
-        "name": "get_connected_entities",
-        "description": "Get entities connected to a given entity",
-        "inputSchema": {
+    ),
+    (
+        "get_connected_entities",
+        "Get entities connected to a given entity",
+        {
             "type": "object",
             "properties": {
                 "entity_id": {"type": "integer"},
@@ -142,11 +144,11 @@ TOOL_DEFINITIONS = [
             },
             "required": ["entity_id"]
         }
-    },
-    {
-        "name": "set_context",
-        "description": "Set a context entry",
-        "inputSchema": {
+    ),
+    (
+        "set_context",
+        "Set a context entry",
+        {
             "type": "object",
             "properties": {
                 "category": {"type": "string"},
@@ -155,15 +157,15 @@ TOOL_DEFINITIONS = [
             },
             "required": ["category", "key", "value"]
         }
-    },
-    {
-        "name": "get_context",
-        "description": "Get context entries",
-        "inputSchema": {
+    ),
+    (
+        "get_context",
+        "Get context entries",
+        {
             "type": "object",
             "properties": {
                 "category": {"type": "string"}
             }
         }
-    }
+    )
 ]
