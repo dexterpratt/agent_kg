@@ -1,0 +1,48 @@
+{
+  "darkMode": "light",
+  "scale": 0,
+  "mcpServers": {
+    "sqlite": {
+      "command": "uvx",
+      "args": [
+        "mcp-server-sqlite",
+        "--db-path",
+        "/Users/idekeradmin/test.db"
+      ]
+    },
+    "filesystem": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "/Users/idekeradmin/Desktop/mcp"
+      ]
+    },
+    "agent_kg": {
+      "command": "uv",
+      "args": [
+        "run",
+        "--with",
+        "fastmcp",
+        "--with",
+        "uvicorn",
+        "--with",
+        "psycopg2",
+        "--with",
+        "pandas",
+        "--with",
+        "python-dotenv",
+        "fastmcp",
+        "run",
+        "/Users/idekeradmin/Dropbox/GitHub/agent_kg/src/agent_kg/server.py"
+      ],
+      "env": {
+        "POSTGRES_DB": "memento",
+        "POSTGRES_USER": "postgres",
+        "POSTGRES_PASSWORD": "",
+        "POSTGRES_HOST": "localhost",
+        "POSTGRES_PORT": "5432"
+      }
+    }
+  }
+}

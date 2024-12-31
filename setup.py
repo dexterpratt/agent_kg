@@ -22,11 +22,11 @@ setup(
     package_dir={"": "src"},
     python_requires=">=3.9",  # For type hint support
     install_requires=[
+        "fastmcp>=0.1.0",
+        "uvicorn>=0.27.0",
         "psycopg2-binary>=2.9.9",
-        "python-dotenv>=1.0.0",
-        "mcp>=1.1.2",  # Updated to match current version
-        "pydantic>=2.0.0",  # For data validation
-        "typing-extensions>=4.0.0",  # For additional type hint features
+        "pandas>=2.1.4",
+        "python-dotenv>=1.0.0"
     ],
     extras_require={
         'dev': [

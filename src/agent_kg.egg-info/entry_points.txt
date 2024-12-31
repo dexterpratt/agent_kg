@@ -1,2 +1,2 @@
 [console_scripts]
-agent_kg = agent_kg:main
+agent-kg = agent_kg.main:main

@@ -1,13 +1,17 @@
 """PostgreSQL database connection and query execution."""
 
 import logging
+import select
 from typing import Optional, List, Dict, Any, Union
 import psycopg2
 from psycopg2.extras import DictCursor
 from psycopg2.errors import OperationalError, ProgrammingError
+from psycopg2.extensions import POLL_OK, POLL_READ, POLL_WRITE
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("postgres_module")
+
+DEFAULT_TIMEOUT = 10  # seconds
 
 
 class PostgresDB:
@@ -56,7 +60,8 @@ class PostgresDB:
     def execute_query(
         self, 
         query: str, 
-        params: Optional[tuple] = None
+        params: Optional[tuple] = None,
+        timeout: Optional[float] = None
     ) -> Optional[List[Dict[str, Any]]]:
         """Execute a SQL query and return results as a list of dictionaries.
         
@@ -75,13 +80,30 @@ class PostgresDB:
         if not query or not query.strip():
             raise ValueError("Query cannot be empty")
 
+        timeout = timeout or DEFAULT_TIMEOUT
+
         try:
             if not self.connection or self.connection.closed:
                 logger.warning("Connection lost, attempting to reconnect")
                 self._init_database()
 
             with self.connection.cursor() as cursor:
+                # Set statement timeout at the session level
+                cursor.execute(f"SET statement_timeout = {int(timeout * 1000)}")
+                
                 cursor.execute(query, params or ())
+
+                # Use select to implement timeout for results
+                while True:
+                    state = self.connection.poll()
+                    if state == POLL_OK:
+                        break
+                    elif state == POLL_READ:
+                        select.select([self.connection], [], [], timeout)
+                    elif state == POLL_WRITE:
+                        select.select([], [self.connection], [], timeout)
+                    else:
+                        raise OperationalError("Poll failed")
 
                 if cursor.description:  # SELECT query
                     columns = [desc[0] for desc in cursor.description]
@@ -90,9 +112,13 @@ class PostgresDB:
                 self.connection.commit()  # For INSERT/UPDATE/DELETE
                 return None
 
+        except select.error as e:
+            raise TimeoutError(f"Query execution timed out after {timeout} seconds")
         except ProgrammingError as e:
             raise ValueError(f"Invalid query or parameters: {e}")
         except OperationalError as e:
+            if "statement timeout" in str(e):
+                raise TimeoutError(f"Query execution timed out after {timeout} seconds")
             raise ConnectionError(f"Database connection error: {e}")
         except Exception as e:
             raise RuntimeError(f"Unexpected database error: {e}")

@@ -1,14 +1,36 @@
 Metadata-Version: 2.1
-Name: agent_kg
-Version: 0.0.1
-Summary: A simple MCP server for a knowledge graph
+Name: agent-kg
+Version: 0.1.0
+Summary: Knowledge Graph MCP Server for Agent Memory Management
 Author: Agent KG Team
+Project-URL: Source, https://github.com/yourusername/agent_kg
+Project-URL: Bug Reports, https://github.com/yourusername/agent_kg/issues
+Keywords: knowledge-graph mcp-server agent-memory postgresql
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Database :: Database Engines/Servers
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Operating System :: OS Independent
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
-Requires-Dist: mcp>=1.0.0
-Requires-Dist: psycopg2
-Requires-Dist: pandas
-Requires-Dist: python-dotenv
+Requires-Dist: fastmcp>=0.1.0
+Requires-Dist: uvicorn>=0.27.0
+Requires-Dist: psycopg2-binary>=2.9.9
+Requires-Dist: pandas>=2.1.4
+Requires-Dist: python-dotenv>=1.0.0
+Provides-Extra: dev
+Requires-Dist: pytest>=7.0.0; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.23.0; extra == "dev"
+Requires-Dist: pytest-cov>=4.1.0; extra == "dev"
+Requires-Dist: black>=23.0.0; extra == "dev"
+Requires-Dist: isort>=5.12.0; extra == "dev"
+Requires-Dist: mypy>=1.5.0; extra == "dev"
+Requires-Dist: pylint>=3.0.0; extra == "dev"
 
 # agent_kg
  knowledge graph database for agents 

@@ -10,7 +10,7 @@ from typing import Dict, Any
 from fastmcp import FastMCP
 import dotenv
 
-from agent_kg.postgres import PostgresDB
+from .postgres import PostgresDB
 
 # Configure logging
 logging.basicConfig(
@@ -33,7 +33,7 @@ db = PostgresDB({
 })
 
 # Create MCP server
-mcp = FastMCP("Agent Knowledge Graph")
+mcp = FastMCP("Knowledge Graph")
 
 # Tool implementations
 @mcp.tool()
@@ -73,9 +73,6 @@ async def delete_entity(id: int) -> Dict[str, Any]:
         logger.error(f"Error deleting entity: {e}")
         raise
 
-# TODO
-# select_entity_by_id (id, properties)
-# select_entity_by_properties ()
 async def cleanup():
     """Clean up server resources."""
     try:
