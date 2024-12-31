@@ -73,9 +73,8 @@ async def delete_entity(id: int) -> Dict[str, Any]:
         logger.error(f"Error deleting entity: {e}")
         raise
 
-# TODO
-# select_entity_by_id (id, properties)
-# select_entity_by_properties ()
+
+
 async def cleanup():
     """Clean up server resources."""
     try:

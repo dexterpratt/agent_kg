@@ -1,23 +1,61 @@
-## Software Architecture
+## Development Policies
+- Incremental development, verification of correct operation and usable prototype system after each development step
+- Avoid premature optimization
+- Avoid speculative addition of features not currently required.
 
-The agent_kg system is structured as an MCP server that provides knowledge graph capabilities through a PostgreSQL database. The architecture consists of several key components:
+## Software Architecture and Development Plan
+
+The agent_kg system is structured as an MCP server that provides knowledge graph capabilities through a PostgreSQL database. 
+
+Currently prototyping, supporting ongoing research in several projects, requirements are evolving
+
+The architecture and development plan consists of several key components and steps:
 
 1. Core Knowledge Graph Layer
    - Entities table as primary nodes
    - Relationships table for edges between entities
    - Properties system with both flexible and validated property storage
    - Property definitions for validation rules
+   - Creation and last modification dates on entities and relationships
+   - Tightly constrained and validated write operations for safety 
+      - step 1
+         - create entity
+         - delete entity
+         - add/update/delete entity properties
+      - step 2
+         - add relationship'
+         - delete relationship
+         - add/update/delete relationship properties
+      - step 3: managing vocabularies. 
+         - add relationship type
+         - add entity type
+         - add property type
+         - protected entities and relationships (for example, only some episode properties and relationships can be changed by the agent)
+      - step 4: special operations
+         - add episode
+   - Unconstrained read operations
+      - step 1
+         - simple "execute read query" MCP tool interface
+      - includes introspection: list tables, describe tables
+   - Future, design TBD
+      - export and import/merging of knowledge graphs
+      - backup (before major operations, such as import knowledge graph)
 
 2. Agent Operations Layer
    - Procedures, steps, and components for defining agent operations
-   - Operation logging and state tracking
-   - Query templates and result formats for standardized data access
+      - these are abstract "tools", dynamic prompt augmentation the agent can use
+      - the agent is instructed to consult these as a guide to expected behavior in specific situations
+      - includes query templates and result formats for standardized data access
+   - Operation logging and state tracking within the knowledge graph
+      - Episodes provide explicit history of each prompt/response/action process
+      - Actions are planned, performed, and annotated
+      - only selected properties of Actions are agent editable after the action is created
 
 3. System Management Layer
    - Schema version control
    - System purpose documentation
-   - Vocabulary management
-   - Task tracking
+   - Vocabulary management (see step 3 in knowledge graph operations)
+   - Actions tracking
 
 ## Schema Overview
 
@@ -47,41 +85,46 @@ System Tables:
 - schema_vocabulary: Maintains consistent terminology
 - tasks: Tracks development and operational tasks
 
-## Implementation Notes
+## Phase 1
 
-1. Error Handling
+- Get MCP server tools working, step by step (see steps above)
+
+- Error Handling
    - Use standard error types with descriptive messages
    - MCP package does not provide specific error types
    - Operation logging captures errors and resolution steps
 
-2. Data Validation
-   - Two-tier property system: flexible and validated
+## Phase 2
+
+- Data Validation
+   - Two-tier property, relationship and entity system: flexible vs validated, see above protected property, relationship, and entity types
    - Property definitions enforce data consistency
    - Schema vocabulary ensures terminology consistency
 
-3. Performance Considerations
-   - Indexed key fields for efficient querying
-   - Unique constraints on critical combinations
-   - Timestamp tracking for all major entities
 
-4. Security
+## Future Considerations, should NOT affect the initial prototype design
+
+- Security
    - Row-level security disabled
    - All operations logged for audit purposes
    - State tracking for operation verification
 
-## Future Considerations
+- Performance Considerations
+   - Indexed key fields for efficient querying
+   - Unique constraints on critical combinations
+   - Timestamp tracking for all major entities
 
-1. Scalability
+- Scalability
    - Monitor performance with growing data volume
    - Consider partitioning for large tables
    - Evaluate caching strategies
 
-2. Integration
+- Integration
    - Standardize API patterns for agent interaction
    - Define clear boundaries for system expansion
    - Maintain backward compatibility
 
-3. Maintenance
+- Maintenance
    - Regular schema version updates
    - Monitoring of operation logs
    - Performance optimization based on usage patterns
