@@ -18,7 +18,7 @@
         "/Users/idekeradmin/Desktop/mcp"
       ]
     },
-    "agent_kg": {
+    "aRxiv Search": {
       "command": "uv",
       "args": [
         "run",
@@ -27,7 +27,22 @@
         "--with",
         "uvicorn",
         "--with",
-        "psycopg2",
+        "arxiv",
+        "fastmcp",
+        "run",
+        "/Users/idekeradmin/Dropbox/GitHub/memento/memento/mcp/arxiv_search.py"
+      ]
+    },
+    "Agent Knowledge Graph": {
+      "command": "uv",
+      "args": [
+        "run",
+        "--with",
+        "fastmcp",
+        "--with",
+        "uvicorn",
+        "--with",
+        "psycopg2-binary",
         "--with",
         "pandas",
         "--with",
@@ -41,7 +56,8 @@
         "POSTGRES_USER": "postgres",
         "POSTGRES_PASSWORD": "",
         "POSTGRES_HOST": "localhost",
-        "POSTGRES_PORT": "5432"
+        "POSTGRES_PORT": "5432",
+        "PYTHONPATH": "/Users/idekeradmin/Dropbox/GitHub/agent_kg/src"
       }
     }
   }

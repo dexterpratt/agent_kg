@@ -1,17 +1,45 @@
 """Tests for PostgreSQL database connection and query execution."""
 
 import pytest
+import logging
 from datetime import datetime
 import psycopg2
 from psycopg2.errors import OperationalError, ProgrammingError
 from src.agent_kg.postgres import PostgresDB, Entity, Property, Relationship, ValueType
 
+logger = logging.getLogger(__name__)
+
+
 @pytest.fixture(scope="function")
 def db(test_db_config):
     """Fixture to initialize and clean up the database connection."""
     db_instance = PostgresDB(test_db_config)
+    
+    # Clean up any existing test data
+    try:
+        db_instance.execute_query("DELETE FROM properties")
+        db_instance.execute_query("DELETE FROM relationships")
+        db_instance.execute_query("DELETE FROM entities")
+        db_instance.connection.commit()  # Ensure cleanup is committed
+    except Exception as e:
+        logger.warning(f"Error cleaning up test data: {e}")
+        if db_instance.connection and not db_instance.connection.closed:
+            db_instance.connection.rollback()
+    
     yield db_instance
-    db_instance.close()
+    
+    # Clean up after test
+    try:
+        db_instance.execute_query("DELETE FROM properties")
+        db_instance.execute_query("DELETE FROM relationships")
+        db_instance.execute_query("DELETE FROM entities")
+        db_instance.connection.commit()  # Ensure cleanup is committed
+    except Exception as e:
+        logger.warning(f"Error cleaning up test data: {e}")
+        if db_instance.connection and not db_instance.connection.closed:
+            db_instance.connection.rollback()
+    finally:
+        db_instance.close()
 
 def test_connection_initialization(test_db_config):
     """Test database connection initialization with valid config."""
@@ -428,6 +456,108 @@ def test_relationship_validation(db, test_entities):
         db.get_entity_relationships(None)
     with pytest.raises(ValueError, match="Must include at least one relationship direction"):
         db.get_entity_relationships(1, include_incoming=False, include_outgoing=False)
+
+def test_read_only_query_validation(db):
+    """Test validation of read-only queries."""
+    # Valid SELECT queries
+    assert db.is_read_only_query("SELECT * FROM entities")
+    assert db.is_read_only_query("""
+        -- Comment
+        SELECT id, name 
+        FROM entities 
+        WHERE type = 'test'
+    """)
+    assert db.is_read_only_query("SELECT COUNT(*) FROM properties")
+    
+    # Invalid queries (write operations)
+    assert not db.is_read_only_query("INSERT INTO entities (type, name) VALUES ('test', 'test')")
+    assert not db.is_read_only_query("UPDATE entities SET name = 'new' WHERE id = 1")
+    assert not db.is_read_only_query("DELETE FROM entities WHERE id = 1")
+    assert not db.is_read_only_query("DROP TABLE entities")
+    assert not db.is_read_only_query("CREATE TABLE test (id int)")
+    assert not db.is_read_only_query("ALTER TABLE entities ADD COLUMN test text")
+    assert not db.is_read_only_query("TRUNCATE TABLE entities")
+
+def test_read_only_query_enforcement(db):
+    """Test enforcement of read-only queries."""
+    # Test valid SELECT query
+    result = db.execute_query("SELECT 1 as num", enforce_read_only=True)
+    assert result == [{"num": 1}]
+    
+    # Test write operations with enforcement
+    with pytest.raises(ValueError, match="Only SELECT queries are allowed"):
+        db.execute_query("INSERT INTO entities (type, name) VALUES ('test', 'test')", enforce_read_only=True)
+    
+    with pytest.raises(ValueError, match="Only SELECT queries are allowed"):
+        db.execute_query("UPDATE entities SET name = 'new' WHERE id = 1", enforce_read_only=True)
+    
+    with pytest.raises(ValueError, match="Only SELECT queries are allowed"):
+        db.execute_query("DELETE FROM entities WHERE id = 1", enforce_read_only=True)
+
+def test_data_persistence_after_failed_query(db):
+    """Test that data persists after failed queries."""
+    # Create initial entity
+    entity = db.add_entity("test_type", "test_entity")
+    entity_id = entity.id
+    
+    try:
+        # Attempt an invalid query that will fail
+        db.execute_query("INVALID SQL")
+    except ValueError:
+        pass  # Expected error
+    
+    # Verify entity still exists after failed query
+    retrieved = db.get_entity(entity_id=entity_id)
+    assert retrieved is not None
+    assert retrieved.id == entity_id
+    assert retrieved.type == "test_type"
+    assert retrieved.name == "test_entity"
+
+def test_transaction_isolation(db):
+    """Test that rollback only affects current transaction."""
+    # Create initial entity
+    entity1 = db.add_entity("test_type", "entity1")
+    
+    try:
+        # Start a new transaction that will fail
+        db.execute_query("INSERT INTO entities (type, name) VALUES ('test_type', 'entity2')")
+        db.execute_query("INVALID SQL")  # This will fail
+    except ValueError:
+        pass  # Expected error
+    
+    # Verify first entity still exists
+    retrieved = db.get_entity(entity_id=entity1.id)
+    assert retrieved is not None
+    assert retrieved.id == entity1.id
+    
+    # Create another entity after failed transaction
+    entity3 = db.add_entity("test_type", "entity3")
+    assert entity3 is not None
+    assert entity3.type == "test_type"
+    assert entity3.name == "entity3"
+
+def test_connection_recovery_after_errors(db):
+    """Test connection recovery after query errors."""
+    # Create initial entity
+    entity1 = db.add_entity("test_type", "entity1")
+    
+    # Force multiple failed queries
+    for _ in range(3):
+        try:
+            db.execute_query("INVALID SQL")
+        except ValueError:
+            pass  # Expected error
+    
+    # Verify connection still works
+    entity2 = db.add_entity("test_type", "entity2")
+    assert entity2 is not None
+    assert entity2.type == "test_type"
+    assert entity2.name == "entity2"
+    
+    # Verify first entity still exists
+    retrieved = db.get_entity(entity_id=entity1.id)
+    assert retrieved is not None
+    assert retrieved.id == entity1.id
 
 def test_connection_close(db):
     """Test connection closing behavior."""

@@ -105,17 +105,42 @@ class PostgresDB:
             except Exception as e:
                 raise ConnectionError(f"Unexpected error connecting to PostgreSQL: {e}")
 
+    def is_read_only_query(self, query: str) -> bool:
+        """Check if a query is read-only (SELECT only).
+        
+        Args:
+            query: SQL query string to validate
+            
+        Returns:
+            True if query is read-only, False otherwise
+        """
+        # Normalize query by removing comments and extra whitespace
+        clean_query = ' '.join(
+            line for line in query.split('\n')
+            if not line.strip().startswith('--')
+        ).strip().upper()
+        
+        # Check if query starts with SELECT and doesn't contain write operations
+        write_operations = ['INSERT', 'UPDATE', 'DELETE', 'DROP', 'CREATE', 'ALTER', 'TRUNCATE']
+        return (
+            clean_query.startswith('SELECT') and
+            not any(op in clean_query for op in write_operations)
+        )
+
     def execute_query(
         self, 
         query: str, 
         params: Optional[tuple] = None,
-        timeout: Optional[float] = None
+        timeout: Optional[float] = None,
+        enforce_read_only: bool = False
     ) -> Optional[List[Dict[str, Any]]]:
         """Execute a SQL query and return results as a list of dictionaries.
         
         Args:
             query: SQL query string
             params: Query parameters as a tuple
+            timeout: Query timeout in seconds
+            enforce_read_only: If True, only allow SELECT queries
         
         Returns:
             List of dictionaries for SELECT queries, None for other query types
@@ -128,6 +153,9 @@ class PostgresDB:
         if not query or not query.strip():
             raise ValueError("Query cannot be empty")
 
+        if enforce_read_only and not self.is_read_only_query(query):
+            raise ValueError("Only SELECT queries are allowed")
+
         timeout = timeout or DEFAULT_TIMEOUT
 
         try:
@@ -136,29 +164,35 @@ class PostgresDB:
                 self._init_database()
 
             with self.connection.cursor() as cursor:
-                # Set statement timeout at the session level
-                cursor.execute(f"SET statement_timeout = {int(timeout * 1000)}")
-                
-                cursor.execute(query, params or ())
+                try:
+                    # Set statement timeout at the session level
+                    cursor.execute(f"SET statement_timeout = {int(timeout * 1000)}")
+                    
+                    cursor.execute(query, params or ())
 
-                # Use select to implement timeout for results
-                while True:
-                    state = self.connection.poll()
-                    if state == POLL_OK:
-                        break
-                    elif state == POLL_READ:
-                        select.select([self.connection], [], [], timeout)
-                    elif state == POLL_WRITE:
-                        select.select([], [self.connection], [], timeout)
-                    else:
-                        raise OperationalError("Poll failed")
+                    # Use select to implement timeout for results
+                    while True:
+                        state = self.connection.poll()
+                        if state == POLL_OK:
+                            break
+                        elif state == POLL_READ:
+                            select.select([self.connection], [], [], timeout)
+                        elif state == POLL_WRITE:
+                            select.select([], [self.connection], [], timeout)
+                        else:
+                            raise OperationalError("Poll failed")
 
-                if cursor.description:  # SELECT query
-                    columns = [desc[0] for desc in cursor.description]
-                    return [dict(zip(columns, row)) for row in cursor.fetchall()]
+                    if cursor.description:  # SELECT query
+                        columns = [desc[0] for desc in cursor.description]
+                        return [dict(zip(columns, row)) for row in cursor.fetchall()]
 
-                self.connection.commit()  # For INSERT/UPDATE/DELETE
-                return None
+                    self.connection.commit()  # For INSERT/UPDATE/DELETE
+                    return None
+
+                except Exception as e:
+                    # Rollback transaction on any error
+                    self.connection.rollback()
+                    raise e
 
         except select.error as e:
             raise TimeoutError(f"Query execution timed out after {timeout} seconds")
@@ -303,9 +337,9 @@ class PostgresDB:
             update_parts.append("name = %s")
             params.append(name)
         
-        update_parts.append("last_updated = CURRENT_TIMESTAMP")
+        update_parts.append("last_updated = clock_timestamp()")
         params.append(entity_id)
-
+        
         query = f"""
             UPDATE entities
             SET {", ".join(update_parts)}
@@ -521,7 +555,7 @@ class PostgresDB:
             update_parts.append("value_type = %s")
             params.append(value_type.name)
         
-        update_parts.append("last_updated = CURRENT_TIMESTAMP")
+        update_parts.append("last_updated = clock_timestamp()")
         params.append(property_id)
 
         query = f"""
@@ -698,15 +732,18 @@ class PostgresDB:
         if not type or not type.strip():
             raise ValueError("Relationship type cannot be empty")
 
-        query = """
+        update_parts = ["type = %s", "last_updated = clock_timestamp()"]
+        params = [type, relationship_id]
+
+        query = f"""
             UPDATE relationships
-            SET type = %s, last_updated = CURRENT_TIMESTAMP
+            SET {", ".join(update_parts)}
             WHERE id = %s
             RETURNING id, source_id, target_id, type, created_at, last_updated
         """
 
         try:
-            result = self.execute_query(query, (type, relationship_id))
+            result = self.execute_query(query, tuple(params))
             if not result:
                 return None
             
