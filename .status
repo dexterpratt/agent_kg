@@ -1,193 +1,37 @@
 ## Current State
 
+- most tests passing but some outstanding. Resolve these first.  Also review the new logging outputs from the tests to see that they are consistent
+
+- Critical issue investigation in progress:
+  * Database clearing on errors being monitored
+  * Transaction boundaries now clearly logged
+  * Connection state changes tracked
+  * Test database state tracked before/after operations
+
+- the new database operations need to be exposed as tools
+- we need tools for the agent to list and describe tables
+
 Implementation Status:
-- Investigated and diagnosed transaction handling issues:
-  * Found that failed queries were leaving transactions in aborted state
-  * Identified string concatenation bugs in test cases
-  * Discovered need for explicit transaction management
-  * Confirmed database setup is correct (memento and memento_test databases)
+- Enhanced logging implemented to track database operations:
+  * Added detailed transaction logging in server.py
+  * Added database state tracking in tests
+  * Added operation logging with consistent format
+  * Added error tracking with context
 
 Recent Changes:
-- Improved transaction handling in PostgresDB:
-  * Added check for failed transaction state
-  * Added rollback in all error handlers
-  * Added commit after SELECT queries
-  * Added safety checks for rollback operations
-  * Fixed string concatenation bugs in tests
-  * Added proper cleanup in test fixtures
+- Enhanced logging and monitoring:
+  * Added log_db_operation helper for consistent operation logging
+  * Added get_db_state helper to track database state
+  * Updated test fixtures with state logging
+  * Added transaction boundary logging
+  * Added connection state tracking
 
-Database Status:
-- Verified correct database setup:
-  * memento: Main database
-  * memento_test: Test database
-  * No unexpected databases being created
-
-Current Issues:
-- Transaction handling needs improvement:
-  * Failed queries can leave transactions in aborted state
-  * Need to ensure proper rollback on errors
-  * Need to handle transaction state between queries
-  * Need to fix test data persistence issues
-
-Planned Improvements:
-- Implement robust transaction handling:
-  * Add transaction state checks
-  * Add automatic rollback on errors
-  * Add proper cleanup between tests
-  * Add transaction isolation tests
+- Completed PostgresDB implementation:
+  * Added missing CRUD methods for entities, properties, and relationships
+  * Enhanced validation for all operations
+  * Added proper error handling and logging
+  * Added support for type/name entity lookup
+  * Added relationship direction filtering
 
 
-FastMCP Server Implementation:
-- Basic entity operations exposed through FastMCP tools:
-  * add_entity: Creates new entities with optional properties
-  * update_entity: Updates entity properties
-  * delete_entity: Removes entities and their properties
-- Tools properly wrap PostgreSQL operations
-- JSON responses for tool results
-- Error handling and logging in place
-- Configured for use with Claude desktop
 
-Fixed timestamp update issue:
-- Changed from CURRENT_TIMESTAMP to clock_timestamp() to ensure unique timestamps for updates
-- All CRUD tests now passing:
-  * Entity updates correctly update last_updated timestamp
-  * Property updates correctly update last_updated timestamp
-  * Relationship updates correctly update last_updated timestamp
-
-Database Schema:
-- Complete PostgreSQL schema defined in schema.sq
-- Core knowledge graph tables implemented (entities, properties, relationships)
-- Foreign key constraints and indexes properly defined
-- Test database (memento_test) created and schema successfully applied
-
-Implementation Status:
-- PostgreSQL connection manager (PostgresDB) implementation:
-  * 12 tests passing:
-    - Connection initialization and retry logic working correctly
-    - Query execution and error handling functioning properly
-    - Basic validation for entities, properties, and relationships working
-    - Entity retrieval operations working
-    - Property value type handling working
-    - Relationship validation and retrieval working
-  * All tests passing after fixing timestamp updates:
-    - Entity updates now correctly update last_updated timestamp
-    - Property updates now correctly update last_updated timestamp
-    - Relationship updates now correctly update last_updated timestamp
-  * Next step: Expose operations through FastMCP server
-- Test framework in place with fixtures and validation tests
-- Ready to expose operations through FastMCP server
-
-## Task History
-
-2024-12-30:
-- Attempted FastMCP implementation:
-  * Removed tool_definitions.py and handlers.py in favor of direct FastMCP decorators
-  * Simplified server implementation using FastMCP patterns
-  * Updated to use uv package manager instead of conda
-  * Configured server to run with fastmcp CLI
-  * Updated Claude desktop config to use new execution pattern
-  * Maintained existing PostgreSQL functionality
-- Implementation notes:
-  * Server uses FastMCP decorators for tool definitions
-  * Simplified error handling and logging
-  * Maintained existing database operations
-  * Updated dependencies to use psycopg2-binary
-  * Encountered module import issues with FastMCP execution
-  * Tried absolute imports but still facing module resolution problems
-
-## Current Challenges
-
-1. Module Resolution
-   - FastMCP execution cannot find 'src' module
-   - Attempted solutions:
-     * Added PYTHONPATH to environment variables (failed)
-     * Changed to absolute imports (failed)
-     * Installed package in development mode (completed)
-   - Status:
-     * Package installed with `pip install -e .`
-     * Development mode installation should allow proper module resolution
-     * Next step: Verify FastMCP can now properly import modules
-
-2. Transaction Management
-   - Issue: Query errors could leave transactions in aborted state
-   - Solution implemented:
-     * Added transaction rollback on errors
-     * Added connection recovery mechanism
-     * Added proper error handling and logging
-     * Status: Fixed and tested
-
-2024-12-29:
-- Simplified implementation to focus on core functionality:
-  * Reduced tool definitions to basic entity operations (add/update/delete)
-  * Removed complex relationship and context operations for initial phase
-  * Fixed async/sync handler integration using run_in_executor
-  * Simplified test suite to focus on MCP server functionality
-  * Successfully resolved test discovery and execution issues
-- Implementation notes:
-  * Server properly wraps synchronous handlers in async using run_in_executor
-  * Tests verify both successful operations and error handling
-  * Basic entity operations working correctly through MCP interface
-
-2024-12-21:
-- Initial implementation with broader scope
-- Set up project structure and documentation
-
-## Current Goals
-
-1. MCP Server Implementation
-   - ✓ Expose core database operations through FastMCP tools
-   - ✓ Implement proper error handling and validation
-   - ✓ Ensure consistent response formats
-   - ✓ Add tool documentation and examples
-
-2. Testing
-   - ✓ Add MCP server integration tests
-   - ✓ Verify tool behavior through MCP inspector
-   - ✓ Test error handling and edge cases
-
-3. Documentation
-   - ✓ Document exposed MCP tools and their usage
-   - ✓ Provide example queries and operations
-   - Update deployment documentation
-
-4. Future Enhancements
-   - Consider adding query parameter support
-   - Add query result pagination for large datasets
-   - Implement query timeout configuration
-   - Add query performance monitoring
-
-## Planned Actions
-
-1. Short-term (Next Task)
-   - Evaluate query performance on large datasets
-   - Consider adding query timeout configuration
-   - Monitor error patterns for potential improvements
-
-2. Medium-term
-   - Implement query parameter validation
-   - Add result pagination for large queries
-   - Enhance monitoring and logging
-   - Consider query caching strategies
-
-## Policies
-
-1. Development Guidelines
-   - Keep implementation simple and focused
-   - Add complexity only when clearly needed
-   - Maintain clear documentation of changes
-
-2. Testing Requirements
-   - All core operations must have tests
-   - Verify both success and error cases
-   - Ensure database operations work correctly
-   - Test MCP server integration thoroughly
-
-3. Error Handling
-   - Provide clear error messages
-   - Handle common error cases gracefully
-   - Maintain data consistency
-
-4. Database Operations
-   - Use clean_db fixture for tests
-   - Handle transactions properly
-   - Verify data persistence

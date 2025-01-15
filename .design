@@ -5,11 +5,11 @@
 
 ## Software Architecture and Development Plan
 
-The agent_kg system is structured as an MCP server that provides knowledge graph capabilities through a PostgreSQL database. 
+The agent_kg system provides knowledge graph capabilities through a PostgreSQL database, implemented as an integrated component within the Claude desktop application rather than a standalone server. 
 
-Currently prototyping, supporting ongoing research in several projects, requirements are evolving
+Currently prototyping, supporting ongoing research in several projects, requirements are evolving.
 
-The architecture and development plan consists of several key components and steps:
+The system is designed to be used directly by Claude through the FastMCP protocol, with database operations integrated into server.py. The architecture and development plan consists of several key components and steps:
 
 1. Core Knowledge Graph Layer
    - Entities table as primary nodes
