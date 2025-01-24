@@ -18,10 +18,12 @@ from psycopg2.errors import OperationalError, ProgrammingError
 from psycopg2.extensions import POLL_OK, POLL_READ, POLL_WRITE
 
 # Configure logging
+log_level = os.getenv('LOGLEVEL', 'INFO')
 logging.basicConfig(
-    level=logging.INFO,
+    level=getattr(logging, log_level),
     format='%(asctime)s [%(levelname)s] %(message)s - %(filename)s:%(lineno)d'
 )
+
 logger = logging.getLogger("knowledge_graph_server")
 
 def log_db_operation(operation, details=None, error=None):
@@ -875,8 +877,8 @@ async def delete_entity(id: int) -> str:
         raise ValueError(str(e))
 
 @mcp.tool()
-async def list_tables() -> str:
-    """List all tables in the database with their sizes and row counts.
+async def list_knowledge_graph_tables() -> str:
+    """List all tables in the knowledge graph database with their sizes and row counts.
     
     Returns:
         JSON response containing table information:
@@ -911,8 +913,8 @@ async def list_tables() -> str:
         })
 
 @mcp.tool()
-async def describe_table(table_name: str) -> str:
-    """Get detailed information about a table's columns and constraints.
+async def describe_knowledge_graph_table(table_name: str) -> str:
+    """Get detailed information about the columns and constraints in the tables in the knowledge graph database.
     
     Args:
         table_name: Name of the table to describe
@@ -1134,8 +1136,8 @@ async def get_properties(entity_id: Optional[int] = None, relationship_id: Optio
         raise ValueError(str(e))
 
 @mcp.tool()
-async def query(sql: str) -> str:
-    """Execute a read-only SQL query against the database.
+async def query_knowledge_graph_database(sql: str) -> str:
+    """Execute a read-only SQL query against the knowledge graph database.
     
     Args:
         sql: SQL query to execute (must be SELECT only)
@@ -1155,7 +1157,10 @@ async def query(sql: str) -> str:
         
         # Handle NULL result for empty result sets
         if results is None:
-            results = []
+            return json.dumps({
+                "success": True,
+                "results": []
+            })
             
         # Convert datetime objects to ISO format strings for JSON serialization
         for row in results:
