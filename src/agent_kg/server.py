@@ -10,7 +10,7 @@ from dataclasses import dataclass, asdict
 from datetime import datetime
 from enum import Enum, auto
 
-from fastmcp import FastMCP
+from mcp.server.fastmcp import FastMCP
 import dotenv
 import psycopg2
 from psycopg2.extras import DictCursor
@@ -358,13 +358,14 @@ class PostgresDB:
             except KeyError:
                 raise ValueError(f"Invalid value_type: {value_type}")
         query = """
-            INSERT INTO properties (entity_id, key, value, value_type)
-            VALUES (%s, %s, %s, %s)
-            RETURNING id, entity_id, key, value, value_type, created_at, last_updated
+            INSERT INTO properties (entity_id, relationship_id, key, value, value_type)
+            VALUES (%s, %s, %s, %s, %s)
+            RETURNING id, entity_id, relationship_id, key, value, value_type, created_at, last_updated
         """
         try:
             result = self.execute_query(query, (
                 entity_id,
+                relationship_id,
                 key,
                 str(value),
                 value_type.name if isinstance(value_type, ValueType) else ValueType[value_type.upper()].name
@@ -379,6 +380,7 @@ class PostgresDB:
                 value=row['value'],
                 value_type=ValueType[row['value_type']],
                 entity_id=row['entity_id'],
+                relationship_id=row['relationship_id'],
                 created_at=row['created_at'],
                 last_updated=row['last_updated']
             )
@@ -409,7 +411,7 @@ class PostgresDB:
         where_clause = " AND ".join(conditions)
         
         query = f"""
-            SELECT id, entity_id, key, value, value_type, created_at, last_updated
+            SELECT id, entity_id, relationship_id, key, value, value_type, created_at, last_updated
             FROM properties
             WHERE {where_clause}
             ORDER BY key, created_at
@@ -456,7 +458,7 @@ class PostgresDB:
             UPDATE properties
             SET {", ".join(update_fields)}
             WHERE id = %s
-            RETURNING id, entity_id, key, value, value_type, created_at, last_updated
+            RETURNING id, entity_id, relationship_id, key, value, value_type, created_at, last_updated
         """
         try:
             result = self.execute_query(query, tuple(params))
@@ -1152,11 +1154,28 @@ async def query_knowledge_graph_database(sql: str) -> str:
         - Join example: SELECT e.*, p.key, p.value FROM entities e LEFT JOIN properties p ON e.id = p.entity_id
     """
     try:
+        # Log the query for debugging
+        logger.info(f"Executing query: {sql}")
+        
         # Execute query with read-only enforcement
-        results = db.execute_query(sql, enforce_read_only=True)
+        # Check if query contains LIKE and convert to parameterized query
+        if 'LIKE' in sql.upper():
+            # Extract the LIKE pattern
+            import re
+            pattern = re.search(r"LIKE\s+'([^']+)'", sql, re.IGNORECASE)
+            if pattern:
+                like_pattern = pattern.group(1)
+                # Replace the literal pattern with a parameter placeholder
+                sql = re.sub(r"LIKE\s+'[^']+'", "LIKE %s", sql, flags=re.IGNORECASE)
+                results = db.execute_query(sql, (like_pattern,), enforce_read_only=True)
+            else:
+                results = db.execute_query(sql, enforce_read_only=True)
+        else:
+            results = db.execute_query(sql, enforce_read_only=True)
         
         # Handle NULL result for empty result sets
         if results is None:
+            logger.info("Query returned no results")
             return json.dumps({
                 "success": True,
                 "results": []
@@ -1168,13 +1187,24 @@ async def query_knowledge_graph_database(sql: str) -> str:
                 if isinstance(value, datetime):
                     row[key] = value.isoformat()
         
+        logger.info(f"Query returned {len(results)} results")
         return json.dumps({
             "success": True,
             "results": results
         })
         
+    except ValueError as e:
+        # Handle specific database errors
+        error_msg = str(e)
+        logger.error(f"Query validation error: {error_msg}")
+        return json.dumps({
+            "success": False,
+            "error": error_msg
+        })
     except Exception as e:
-        logger.error(f"Query error: {e}")
+        # Handle unexpected errors
+        error_msg = str(e)
+        logger.error(f"Unexpected query error: {error_msg}")
         
         # Clear the aborted transaction state so future queries can succeed
         if db.connection and not db.connection.closed:
@@ -1188,7 +1218,7 @@ async def query_knowledge_graph_database(sql: str) -> str:
         
         return json.dumps({
             "success": False,
-            "error": str(e)
+            "error": error_msg
         })
 
 if __name__ == "__main__":

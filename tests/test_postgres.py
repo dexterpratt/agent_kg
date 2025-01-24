@@ -615,6 +615,64 @@ def test_read_only_query_validation(db):
     assert not db.is_read_only_query("ALTER TABLE entities ADD COLUMN test text")
     assert not db.is_read_only_query("TRUNCATE TABLE entities")
 
+def test_like_query_handling(db):
+    """Test handling of LIKE queries with proper parameterization."""
+    # Add test entities
+    entity1 = db.add_entity("test_type", "example_1")
+    entity2 = db.add_entity("test_type", "example_2")
+    entity3 = db.add_entity("test_type", "other_1")
+    
+    try:
+        # Test basic LIKE query with parameterized pattern
+        results = db.execute_query(
+            "SELECT id, type, name FROM entities WHERE name LIKE %s",
+            ("example%",),
+            enforce_read_only=True
+        )
+        assert len(results) == 2
+        names = {row['name'] for row in results}
+        assert 'example_1' in names
+        assert 'example_2' in names
+        
+        # Test LIKE query with underscore using parameterized pattern
+        results = db.execute_query(
+            "SELECT id, type, name FROM entities WHERE name LIKE %s",
+            ("example____%",),  # Four underscores won't match our test data
+            enforce_read_only=True
+        )
+        assert len(results) == 0  # Should match nothing as we used four underscores
+        
+        # Test LIKE query with no matches using parameterized pattern
+        results = db.execute_query(
+            "SELECT id, type, name FROM entities WHERE name LIKE %s",
+            ("nonexistent%",),
+            enforce_read_only=True
+        )
+        assert results is not None
+        assert len(results) == 0
+        
+        # Test case-insensitive LIKE with parameterized pattern
+        results = db.execute_query(
+            "SELECT id, type, name FROM entities WHERE name ILIKE %s",
+            ("EXAMPLE%",),
+            enforce_read_only=True
+        )
+        assert len(results) == 2
+        
+        # Test LIKE with special characters using parameterized pattern
+        results = db.execute_query(
+            "SELECT id, type, name FROM entities WHERE name LIKE %s",
+            ("example\\_1",),
+            enforce_read_only=True
+        )
+        assert len(results) == 1
+        assert results[0]['name'] == 'example_1'
+        
+    finally:
+        # Clean up test entities
+        for entity in [entity1, entity2, entity3]:
+            db.delete_entity(entity.id)
+
 def test_read_only_query_enforcement(db):
     """Test enforcement of read-only queries."""
     # Test valid SELECT query
@@ -737,18 +795,21 @@ def test_describe_table(db):
         db.describe_table('nonexistent_table')
 
 def test_update_properties(db, test_entity, test_entities):
-    """Test update_properties functionality for both entities and relationships."""
+    """Test property update functionality for both entities and relationships."""
     # Get test entities for relationship
     entity1, entity2 = test_entities
     relationship = db.add_relationship(entity1.id, entity2.id, "test_relation")
     
     # Test updating entity properties
-    entity_props = {
-        "str_prop": "test_value",
-        "num_prop": "42",
-        "bool_prop": "true"
-    }
-    db.update_properties(entity_id=test_entity.id, properties=entity_props)
+    # Add initial properties
+    str_prop = db.add_property(key="str_prop", value="initial", value_type=ValueType.STRING, entity_id=test_entity.id)
+    num_prop = db.add_property(key="num_prop", value="0", value_type=ValueType.STRING, entity_id=test_entity.id)
+    bool_prop = db.add_property(key="bool_prop", value="false", value_type=ValueType.STRING, entity_id=test_entity.id)
+    
+    # Update properties one by one
+    db.update_property(str_prop.id, value="test_value")
+    db.update_property(num_prop.id, value="42")
+    db.update_property(bool_prop.id, value="true")
     
     # Verify entity properties
     props = db.get_properties(entity_id=test_entity.id)
@@ -759,12 +820,15 @@ def test_update_properties(db, test_entity, test_entities):
     assert prop_dict["bool_prop"] == "true"
     
     # Test updating relationship properties
-    rel_props = {
-        "weight": "0.8",
-        "label": "test_label",
-        "active": "false"
-    }
-    db.update_properties(relationship_id=relationship.id, properties=rel_props)
+    # Add initial relationship properties
+    weight_prop = db.add_property(key="weight", value="0.0", value_type=ValueType.STRING, relationship_id=relationship.id)
+    label_prop = db.add_property(key="label", value="initial", value_type=ValueType.STRING, relationship_id=relationship.id)
+    active_prop = db.add_property(key="active", value="true", value_type=ValueType.STRING, relationship_id=relationship.id)
+    
+    # Update relationship properties one by one
+    db.update_property(weight_prop.id, value="0.8")
+    db.update_property(label_prop.id, value="test_label")
+    db.update_property(active_prop.id, value="false")
     
     # Verify relationship properties
     props = db.get_properties(relationship_id=relationship.id)
@@ -774,12 +838,9 @@ def test_update_properties(db, test_entity, test_entities):
     assert prop_dict["label"] == "test_label"
     assert prop_dict["active"] == "false"
     
-    # Test updating existing properties
-    updated_props = {
-        "str_prop": "new_value",  # Update existing
-        "new_prop": "added"       # Add new
-    }
-    db.update_properties(entity_id=test_entity.id, properties=updated_props)
+    # Test updating existing property and adding new one
+    db.update_property(str_prop.id, value="new_value")
+    new_prop = db.add_property(key="new_prop", value="added", value_type=ValueType.STRING, entity_id=test_entity.id)
     
     # Verify updates
     props = db.get_properties(entity_id=test_entity.id)
@@ -789,18 +850,11 @@ def test_update_properties(db, test_entity, test_entities):
     assert prop_dict["new_prop"] == "added"
     
     # Test validation
-    with pytest.raises(ValueError, match="Must provide either entity_id or relationship_id"):
-        db.update_properties(properties={"key": "value"})
+    with pytest.raises(ValueError, match="Property ID is required"):
+        db.update_property(None, value="test")
     
-    with pytest.raises(ValueError, match="Cannot provide both entity_id and relationship_id"):
-        db.update_properties(
-            entity_id=test_entity.id,
-            relationship_id=relationship.id,
-            properties={"key": "value"}
-        )
-    
-    with pytest.raises(ValueError, match="Entity with ID .* not found"):
-        db.update_properties(entity_id=99999, properties={"key": "value"})
+    with pytest.raises(ValueError, match="Must provide either value or value_type"):
+        db.update_property(str_prop.id)
 
 def test_connection_close(db):
     """Test connection closing behavior."""

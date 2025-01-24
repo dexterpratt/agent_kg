@@ -32,6 +32,4 @@ Recent Changes:
   * Added proper error handling and logging
   * Added support for type/name entity lookup
   * Added relationship direction filtering
-
-
-
+  * Fixed LIKE query handling to use parameterized patterns consistently
