@@ -8,6 +8,9 @@ from mcp.server import FastMCP
 from kg.db import PostgresDB
 from kg.tools.entity import register_entity_tools
 from kg.tools.query import register_query_tools
+from kg.tools.relationship import register_relationship_tools
+from kg.tools.property import register_property_tools
+
 
 # Initialize logging
 logging.basicConfig(
@@ -34,6 +37,8 @@ mcp = FastMCP("Knowledge Graph Access")
 # Register tools
 register_entity_tools(mcp, db)
 register_query_tools(mcp, db)
+register_relationship_tools(mcp, db)
+register_property_tools(mcp, db)
 
 if __name__ == "__main__":
     mcp.run()

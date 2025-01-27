@@ -2,6 +2,7 @@
 import pytest_asyncio
 import logging
 import json
+import asyncio
 from typing import Any
 from .mcp_client import MCPClient
 
@@ -14,15 +15,16 @@ def log_test_step(step: str, details: Any = None):
         msg += f" - {details}"
     logger.info(msg)
 
-@pytest_asyncio.fixture(scope="function")  # Changed to function scope
-async def mcp_client():
+@pytest_asyncio.fixture(scope="function")
+async def mcp_client(event_loop):
     """Fixture to provide MCP client connection."""
     client = MCPClient()
     try:
         await client.connect_to_server("kg_access.py")
-        yield client  # Changed back to yield for proper cleanup
+        yield client
     finally:
-        await client.cleanup()
+        # Run cleanup in the same event loop
+        await event_loop.create_task(client.cleanup())
 
 @pytest_asyncio.fixture(scope="function")
 async def clean_db(mcp_client):

@@ -2,11 +2,14 @@
 
 from typing import Optional
 from contextlib import AsyncExitStack
+import logging
 
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 import json
 import os
+logger = logging.getLogger(__name__)
+
 
 class MCPClient:
     def __init__(self):
@@ -70,8 +73,13 @@ class MCPClient:
         return result
     
     async def cleanup(self):
-        """Clean up resources"""
-        await self.exit_stack.aclose()
+        """Clean up resources."""
+        try:
+            if hasattr(self, 'session') and self.session:
+                await self.session.close()
+            await self.exit_stack.aclose()
+        except Exception as e:
+            logger.error(f"Error during cleanup: {e}")
 
 
 
