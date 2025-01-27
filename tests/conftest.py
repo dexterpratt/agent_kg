@@ -1,33 +1,55 @@
-"""Test configuration and fixtures."""
+# tests/conftest.py
+import pytest_asyncio
+import logging
+import json
+from typing import Any
+from .mcp_client import MCPClient
 
-import os
-import pytest
-from dotenv import load_dotenv
+logger = logging.getLogger(__name__)
 
-def load_env_file(env_file):
-    """Load environment variables from file."""
-    if os.path.exists(env_file):
-        load_dotenv(env_file)
-    else:
-        raise FileNotFoundError(f"Environment file not found: {env_file}")
+def log_test_step(step: str, details: Any = None):
+    """Helper to log test operations with consistent format."""
+    msg = f"Test Step: {step}"
+    if details:
+        msg += f" - {details}"
+    logger.info(msg)
 
-@pytest.fixture(scope="session")
-def test_db_config():
-    """Get test database configuration from environment."""
-    load_env_file(".env.test")
-    
-    config = {
-        'dbname': os.getenv('POSTGRES_DB'),
-        'user': os.getenv('POSTGRES_USER'),
-        'password': os.getenv('POSTGRES_PASSWORD'),
-        'host': os.getenv('POSTGRES_HOST'),
-        'port': os.getenv('POSTGRES_PORT')
-    }
-    
-    # Validate required config
-    required = ['dbname', 'user', 'host', 'port']
-    missing = [k for k in required if not config.get(k)]
-    if missing:
-        raise ValueError(f"Missing required database config: {', '.join(missing)}")
+@pytest_asyncio.fixture(scope="function")  # Changed to function scope
+async def mcp_client():
+    """Fixture to provide MCP client connection."""
+    client = MCPClient()
+    try:
+        await client.connect_to_server("kg_access.py")
+        yield client  # Changed back to yield for proper cleanup
+    finally:
+        await client.cleanup()
+
+@pytest_asyncio.fixture(scope="function")
+async def clean_db(mcp_client):
+    """Fixture to ensure clean database state before and after tests."""
+    async def clean():
+        # Delete in correct order due to foreign key constraints
+        await mcp_client.call_tool(
+            "query_knowledge_graph_database",
+            {"sql": "DELETE FROM properties"}
+        )
+        await mcp_client.call_tool(
+            "query_knowledge_graph_database",
+            {"sql": "DELETE FROM relationships"}
+        )
+        await mcp_client.call_tool(
+            "query_knowledge_graph_database",
+            {"sql": "DELETE FROM entities"}
+        )
         
-    return config
+        # Verify clean state
+        result = await mcp_client.call_tool(
+            "query_knowledge_graph_database",
+            {"sql": "SELECT COUNT(*) as count FROM entities"}
+        )
+        response = json.loads(result.content[0].text)
+        log_test_step("Database state", f"Entity count: {response['results'][0]['count']}")
+    
+    await clean()  # Clean before test
+    yield
+    await clean()  # Clean after test

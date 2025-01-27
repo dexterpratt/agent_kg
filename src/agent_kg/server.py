@@ -10,7 +10,7 @@ from dataclasses import dataclass, asdict
 from datetime import datetime
 from enum import Enum, auto
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server import FastMCP
 import dotenv
 import psycopg2
 from psycopg2.extras import DictCursor
@@ -108,35 +108,70 @@ class PostgresDB:
             except Exception as e:
                 raise ConnectionError(f"Unexpected connection error: {e}")
 
-    def is_read_only_query(self, query: str) -> bool:
+    def is_read_only_query(self, query: str) -> tuple[bool, str]:
         """Check if a query is read-only (SELECT only).
         
         Args:
             query: SQL query string to validate
             
         Returns:
-            True if query is read-only, False otherwise
+            Tuple of (is_read_only: bool, error_message: str)
         """
-        # Normalize query by removing comments and extra whitespace
-        clean_query = ' '.join(
-            line for line in query.split('\n')
-            if not line.strip().startswith('--')
-        ).strip().upper()
+        if not query or not isinstance(query, str):
+            return False, "Invalid query input"
+            
+        # Debugging point 1: Raw query
+        debug_raw = query  # Breakpoint here to inspect input
         
-        # Check if query starts with SELECT and doesn't contain write operations
-        write_operations = ['INSERT', 'UPDATE', 'DELETE', 'DROP', 'CREATE', 'ALTER', 'TRUNCATE']
-        return (
-            clean_query.startswith('SELECT') and
-            not any(op in clean_query for op in write_operations)
-        )
+        try:
+            # Normalize and clean query
+            clean_query = ' '.join(
+                line for line in query.split('\n')
+                if not line.strip().startswith('--')
+            ).strip().upper()
+            
+            # Debugging point 2: Cleaned query
+            debug_clean = clean_query  # Breakpoint here to inspect cleaning
+            
+            # Validate basic structure
+            if not clean_query:
+                return False, "Empty query after cleaning"
+                
+            if not clean_query.startswith('SELECT'):
+                return False, "Query must start with SELECT"
+            
+            # Check for write operations
+            write_operations = {
+                'INSERT': 0, 'UPDATE': 0, 'DELETE': 0,
+                'DROP': 0, 'CREATE': 0, 'ALTER': 0, 
+                'TRUNCATE': 0
+            }
+            
+            # Debugging point 3: Write operation check
+            for op in write_operations:
+                if op in clean_query:
+                    write_operations[op] = clean_query.count(op)
+                    
+            debug_ops = write_operations  # Breakpoint here to inspect detected operations
+            
+            if any(write_operations.values()):
+                found_ops = [op for op, count in write_operations.items() if count > 0]
+                return False, f"Query contains write operations: {', '.join(found_ops)}"
+                
+            return True, "Valid read-only query"
+            
+        except Exception as e:
+            return False, f"Error processing query: {str(e)}"
 
     def execute_query(self, query: str, params: Optional[tuple] = None, enforce_read_only: bool = False) -> Optional[List[Dict[str, Any]]]:
         """Execute a SQL query and return results."""
         if not query or not query.strip():
             raise ValueError("Query cannot be empty")
             
-        if enforce_read_only and not self.is_read_only_query(query):
-            raise ValueError("Only SELECT queries are allowed")
+        if enforce_read_only:
+            read_only, reason = self.is_read_only_query(query)
+            if not read_only:
+                raise ValueError(f'Only read-only queries are allowed. not read-only because: {reason}')
 
         log_db_operation("Starting query execution", f"Query: {query[:100]}{'...' if len(query) > 100 else ''}")
         
@@ -197,9 +232,11 @@ class PostgresDB:
     def add_entity(self, type: str, name: str) -> Entity:
         """Add a new entity to the knowledge graph."""
         if not type or not type.strip():
-            raise ValueError("Entity type cannot be empty")
+            type = "generic"
+            # raise ValueError("Entity type cannot be empty")
         if not name or not name.strip():
-            raise ValueError("Entity name cannot be empty")
+            name = "none"
+        #     raise ValueError("Entity name cannot be empty")
 
         log_db_operation("Adding entity", f"type={type}, name={name}")
 
@@ -230,8 +267,8 @@ class PostgresDB:
 
     def get_entity(self, entity_id: Optional[int] = None, type: Optional[str] = None, name: Optional[str] = None) -> Optional[Entity]:
         """Get an entity by ID or type/name combination."""
-        if entity_id is None and (type is None or name is None):
-            raise ValueError("Must provide either entity_id or both type and name")
+        # if entity_id is None and (type is None or name is None):
+        #     raise ValueError("Must provide either entity_id or both type and name")
 
         if entity_id is not None:
             query = """
@@ -241,12 +278,13 @@ class PostgresDB:
             """
             params = (entity_id,)
         else:
-            query = """
-                SELECT id, type, name, created_at, last_updated
-                FROM entities
-                WHERE type = %s AND name = %s
-            """
-            params = (type, name)
+            # query = """
+            #     SELECT id, type, name, created_at, last_updated
+            #     FROM entities
+            #     WHERE type = %s AND name = %s
+            # """
+            # params = (type, name)
+            raise ValueError("Must provide either entity_id or both type and name")
 
         try:
             result = self.execute_query(query, params)
@@ -268,12 +306,12 @@ class PostgresDB:
         """Update an entity's type and/or name."""
         if entity_id is None:
             raise ValueError("Entity ID is required")
-        if type is None and name is None:
-            raise ValueError("At least one of type or name must be provided")
-        if type == "":
-            raise ValueError("Entity type cannot be empty")
-        if name == "":
-            raise ValueError("Entity name cannot be empty")
+        # if type is None and name is None:
+        #     raise ValueError("At least one of type or name must be provided")
+        # if type == "":
+        #     raise ValueError("Entity type cannot be empty")
+        # if name == "":
+        #     raise ValueError("Entity name cannot be empty")
 
         # Build update query dynamically based on provided fields
         update_fields = []
@@ -781,12 +819,12 @@ logger.info(f"Connected to database: {os.getenv('POSTGRES_DB')}")
 mcp = FastMCP("Agent Knowledge Graph")
 
 @mcp.tool()
-async def add_entity(type: str, name: str, properties: Dict[str, Any] = {}) -> str:
+async def add_entity(type: str, name: Optional[str] = None, properties: Dict[str, Any] = {}) -> str:
     """Add a new entity to the graph with optional properties.
     
     Args:
         type: The type of entity
-        name: The name of the entity
+        name: Optional The name of the entity
         properties: Optional dictionary of property key-value pairs
         
     Returns:
