@@ -10,6 +10,8 @@ from kg.tools.entity import register_entity_tools
 from kg.tools.query import register_query_tools
 from kg.tools.relationship import register_relationship_tools
 from kg.tools.property import register_property_tools
+from kg.tools.management import register_management_tools
+
 
 
 # Initialize logging
@@ -39,6 +41,8 @@ register_entity_tools(mcp, db)
 register_query_tools(mcp, db)
 register_relationship_tools(mcp, db)
 register_property_tools(mcp, db)
+register_management_tools(mcp, db)
+
 
 if __name__ == "__main__":
     mcp.run()

@@ -10,7 +10,8 @@ def register_entity_tools(mcp, db):
     
     @mcp.tool()
     async def add_entity(type: str, name: Optional[str] = None, properties: Dict[str, Any] = {}) -> str:
-        """Add a new entity to the graph with optional properties."""
+        """Add a new entity to the graph with optional properties. 
+        It returns a json object with properties id, type, name, created_at, last_updated"""
         try:
             query = """
                 INSERT INTO entities (type, name)
@@ -42,7 +43,8 @@ def register_entity_tools(mcp, db):
 
     @mcp.tool()
     async def delete_entity(id: int) -> str:
-        """Delete an entity and all its properties."""
+        """Delete an entity and all its properties. 
+        It returns {"success": True} if successful"""
         try:
             # Delete properties first
             db.execute_query("DELETE FROM properties WHERE entity_id = %s", (id,))
