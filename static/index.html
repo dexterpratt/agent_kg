@@ -9,7 +9,7 @@
             padding: 0;
             font-family: Arial, sans-serif;
             display: grid;
-            grid-template-columns: 250px 1fr;
+            grid-template-columns: 250px 1fr 1fr;
             grid-template-rows: 80px 1fr;
             height: 100vh;
         }
@@ -23,10 +23,17 @@
             padding: 10px;
             border-right: 1px solid #ccc;
             background: #f9f9f9;
+            overflow-y: auto;
         }
         #main-panel {
             padding: 20px;
             overflow: auto;
+            border-right: 1px solid #ccc;
+        }
+        #detail-panel {
+            padding: 20px;
+            overflow: auto;
+            background: #fff;
         }
         .query-item {
             cursor: pointer;
@@ -54,6 +61,21 @@
         }
         th {
             background-color: #f5f5f5;
+        }
+        .entity-row {
+            cursor: pointer;
+        }
+        .entity-row:hover {
+            background-color: #f0f0f0;
+        }
+        .property-section, .relationship-section {
+            margin-top: 20px;
+        }
+        .section-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            padding-bottom: 5px;
+            border-bottom: 2px solid #eee;
         }
     </style>
 </head>
@@ -85,6 +107,9 @@
     <div id="main-panel">
         <div id="results"></div>
     </div>
+    <div id="detail-panel">
+        <div id="entity-details"></div>
+    </div>
 
     <script>
         async function executeQuery(sql) {
@@ -98,7 +123,7 @@
                     body: JSON.stringify({ sql: query }),
                 });
                 const data = await response.json();
-                console.log('Response data:', data); // Debug log
+                console.log('Response data:', data);
                 if (data.success && data.results) {
                     displayResults(data.results);
                 } else {
@@ -129,7 +154,9 @@
             html += '</tr></thead><tbody>';
 
             results.forEach(row => {
-                html += '<tr>';
+                const isEntity = 'id' in row && 'type' in row && 'name' in row;
+                const rowClass = isEntity ? 'class="entity-row" onclick="showEntityDetails(' + row.id + ')"' : '';
+                html += `<tr ${rowClass}>`;
                 columns.forEach(col => {
                     html += `<td>${row[col] || ''}</td>`;
                 });
@@ -138,6 +165,108 @@
 
             html += '</tbody></table>';
             document.getElementById('results').innerHTML = html;
+        }
+
+        async function showEntityDetails(entityId) {
+            try {
+                // Get entity basic info
+                const entityResponse = await fetch('/api/query', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        sql: `SELECT * FROM entities WHERE id = ${entityId}` 
+                    }),
+                });
+                const entityData = await entityResponse.json();
+                
+                // Get properties
+                const propsResponse = await fetch('/api/query', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        sql: `SELECT key, value FROM properties WHERE entity_id = ${entityId}` 
+                    }),
+                });
+                const propsData = await propsResponse.json();
+                
+                // Get relationships
+                const relsResponse = await fetch('/api/query', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        sql: `
+                            SELECT 
+                                e2.name as target_name, 
+                                r.type as relationship_type,
+                                'outgoing' as direction
+                            FROM relationships r
+                            JOIN entities e2 ON r.target_id = e2.id
+                            WHERE r.source_id = ${entityId}
+                            UNION ALL
+                            SELECT 
+                                e1.name as target_name,
+                                r.type as relationship_type,
+                                'incoming' as direction
+                            FROM relationships r
+                            JOIN entities e1 ON r.source_id = e1.id
+                            WHERE r.target_id = ${entityId}
+                        `
+                    }),
+                });
+                const relsData = await relsResponse.json();
+
+                // Display entity details
+                let html = '';
+                if (entityData.success && entityData.results.length > 0) {
+                    const entity = entityData.results[0];
+                    html += `
+                        <h2>${entity.name}</h2>
+                        <p><strong>Type:</strong> ${entity.type}</p>
+                        <p><strong>Created:</strong> ${new Date(entity.created_at).toLocaleString()}</p>
+                        
+                        <div class="property-section">
+                            <div class="section-title">Properties</div>
+                            <table>
+                                <tr><th>Key</th><th>Value</th></tr>
+                    `;
+                    
+                    if (propsData.success && propsData.results.length > 0) {
+                        propsData.results.forEach(prop => {
+                            html += `<tr><td>${prop.key}</td><td>${prop.value}</td></tr>`;
+                        });
+                    }
+                    
+                    html += `
+                        </table>
+                        </div>
+                        
+                        <div class="relationship-section">
+                            <div class="section-title">Relationships</div>
+                            <table>
+                                <tr><th>Direction</th><th>Related Entity</th><th>Relationship</th></tr>
+                    `;
+                    
+                    if (relsData.success && relsData.results.length > 0) {
+                        relsData.results.forEach(rel => {
+                            html += `
+                                <tr>
+                                    <td>${rel.direction}</td>
+                                    <td>${rel.target_name}</td>
+                                    <td>${rel.relationship_type}</td>
+                                </tr>
+                            `;
+                        });
+                    }
+                    
+                    html += '</table></div>';
+                }
+                
+                document.getElementById('entity-details').innerHTML = html;
+                
+            } catch (error) {
+                console.error('Error fetching entity details:', error);
+                document.getElementById('entity-details').innerHTML = `<p>Error loading entity details: ${error.message}</p>`;
+            }
         }
     </script>
 </body>
